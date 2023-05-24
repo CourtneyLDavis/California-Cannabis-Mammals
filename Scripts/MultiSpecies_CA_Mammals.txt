@@ -1,0 +1,68 @@
+model {
+  
+  # Prior distributions on the community level occupancy and detection covariates
+  ### priors for occupancy parameters
+  beta0.mean <- log(psi.mean) - log(1-psi.mean)
+  psi.mean ~ dunif(0, 1)
+  sigma.occ ~ dunif(0, 10)
+  tau.occ <- pow(sigma.occ, -2)
+  
+  ### species-specific occupancy intercept
+  for(j in 1:nspp){
+    beta0[j] ~ dnorm(beta0.mean, tau.occ)
+  }
+  
+  ### priors for true positive detections
+  alpha0.mean <- log(p.mean) - log(1-p.mean)
+  p.mean ~ dunif(0, 1)
+  sigma.p ~ dunif(0, 10) 
+  tau.p <- pow(sigma.p, -2)
+  
+  ### species-specific detection intercept
+  for(j in 1:nspp){
+    alpha0[j] ~ dnorm(alpha0.mean, tau.p)
+  }
+  
+  ### prior for covariate effects on occupancy
+  for(a in 1:nBeta){   ### nBeta is the number of occupancy covariates in the model
+    sigbeta[a] ~ dunif(0, 10)
+    tbeta[a] <- pow(sigbeta[a], -2)  ### tbeta is the amount of variability in covariate effects on occupancy among species
+    
+    mubeta[a] <- log(mubetal[a]) - log(1-mubetal[a])
+    mubetal[a] ~ dunif(0,1) ### community-level mean covariate effects
+    
+    for(i in 1:nspp){    
+      beta[i,a] ~ dnorm(mubeta[a], tbeta[a])  ### beta are the species specific covariate effects on occupancy
+    }
+  }
+  
+  
+  ### prior for covariate effects on detection
+  for(a in 1:nAlpha){   ### nAlpha is the number of detection covariates in the model
+    sigalpha[a] ~ dunif(0, 10)
+    talpha[a] <- pow(sigalpha[a], -2)  ### talpha is the amount of variability in covariate effects on detection among species
+    
+    mualpha[a] <- log(mualphal[a]) - log(1-mualphal[a])
+    mualphal[a] ~ dunif(0, 1) ### community-level mean covariate effects on detection
+    
+    for(i in 1:nspp){    
+      alpha[i,a] ~ dnorm(mualpha[a], talpha[a])  ### alpha are the species specific covariate effects on detection
+    }
+  }
+  
+
+  #Estimate detection probability
+    for(i in 1:n){ 
+      logit(p[i]) <- alpha0[species[i]] + inprod(alpha[species[i],], X.det[i,])
+    }
+  
+  #Estimate the occupancy probability (latent Z matrix) for each species at each point
+    for(i in 1:n){
+      logit(psi[i]) <- beta0[species[i]] + inprod(beta[species[i],], X.occ[i,])
+      Z[i] ~ dbern(psi[i])
+      zp[i] <- p[i] * Z[i]
+      y[i] ~ dbin(zp[i], N[i]) 
+    }
+  
+  
+}
